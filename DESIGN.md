@@ -26,6 +26,7 @@ Jobs are also persisted in Storage, which allows them to be picked up again if a
 TODO: Get a real image drawn up
 
 ```
+Frontend          Service Layer         Backend         Worker pool
 [ UI API ]     -> [ UI Service ]     -> /---------\
 [ Client API ] -> [ Client Service ] -> | Storage |  <- [ Job Orchestrator ] <- [ Worker ]
 [ CD API ]     -> [ CD Service ]     -> |         |
@@ -38,7 +39,7 @@ TODO: Get a real image drawn up
 * __Job Orchestrator__: Handles tracking workers and assigning work to them. Also handles inserting results into Storage (if workers don't support doing so themselves).
 * __Worker__: Takes 2 images and options (eg. thresholds, areas to ignore, etc.), generates a diff (both image and metadata), and generates thumbnails for new images.
 
-## API
+## Frontend API
 
 Requests will comes from 4 main sources:
 * __UI__: Web portal to display results and allow baselines to be reset.
@@ -88,7 +89,7 @@ TODO: Create Swagger/Open API definitions
 
 ## Security
 
-Security will be handled as middleware on the API, standing between the API endpoint and the service.  
+Security will be handled as middleware on the frontend API, standing between the API endpoint and the service layer.  
 Aside from being API middleware, no other assumptions will be made about the security implementation.
 
 To start with, only 2 security implementations will be provided:
@@ -98,15 +99,37 @@ eg. UI could allow anon access, while Client requires a "ICanUpload" token, and 
 
 ## Storage
 
+The storage module can be implemented in anyway that fits the user's requirements or infrastructure, as long as it implements the following API and exposes it in a way that can be accessed by the service layer and worker pool (eg. Go module).
+
 TODO List procedure calls that it needs to support.
+
+Possible implementations:
+
+* File system: Files in folders, single JSON or XML file with projects data.
+* SQL: Use Go's `database/sql` module with any SQL implementation with a supported driver.
+* NoSQL: MongoDB or CouchDB for projects data, and an S3 implementation for images.
+
+Starting implementation will be file system based.
 
 ## Job Orchestrator
 
-TODO Discuss provisioning workers vs tracking workers (ie. Being told, via admin channel, of a worker's existence)  
-TODO Circuit breaker for crashing workers  
-TODO Response to Service vs direct calls to Storage
+The job orchestrator is responsible for *tracking* workers, not provisioning them.  Provisioning workers needs to be done externally, with details passed in via the Admin module to add them to the pool.  Workers can also be deactivated by the Admin module.
+
+Jobs are assigned to workers by providing them a job ID. The workers themselves are then expected to retrieve the job data from the storage module. When finished, they pass the result to storage themselves, then notify the orchestrator that they're available to pickup another job.
+
+A worker is considered "working", and therefore unavailable, once it's been given a job. Only once a "done" message is returned does it get returned to the available pool to receive another job.
+
+If a job takes too long, the worker is considered unresponsive and remove from the pool, and the job is reassigned to another available worker.
+
+The job orchestrator should gracefully handle when there are no valid workers available (jobs are simply queued up in storage).
+
+When the job orchestrator first starts up, it retrieves the list of available jobs from Storage and holds them in memory.  It should also periodically check Storage for any jobs that might have been missed or lost (eg. Once every 5 minutes or so), and should make a log entry if it does find one - in case this is a systemic issue that needs resolving.
 
 ## Worker
+
+Workers are assigned Job IDs, which can then be used to query Storage for the relevant data (ie. screenshots), and to write the results back to Storage.
+
+Workers need to handle one (or both) of two operations: thumbnail generation, and image diffing.
 
 TODO Request/Response interface  
 TODO Different transports. eg. HTTP vs ipc
