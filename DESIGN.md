@@ -39,6 +39,15 @@ Frontend          Service Layer         Backend         Worker pool
 * __Job Orchestrator__: Handles tracking workers and assigning work to them. Also handles inserting results into Storage (if workers don't support doing so themselves).
 * __Worker__: Takes 2 images and options (eg. thresholds, areas to ignore, etc.), generates a diff (both image and metadata), and generates thumbnails for new images.
 
+### Communication channels
+
+- **Client-Frontend**: Any network transport you choose to support. eg. HTTPS, thrift, GRPc, etc.
+- **Storage-Database**: Dependant on the database. Ideally something with a native Go driver.
+- **Orchestrator-Workers**: If Workers are Go routines, then it would be channels. If they're separate processes on the local machine, they could communicate via ipc. Otherwise it will be a network transport on a port separate to the frontend.
+- **Workers-Storage**: Storage needs to expose endpoints on a third port for workers to request through.
+
+Everything else is expected to be Go modules which communicate via interfaces.
+
 ## Frontend API
 
 Requests will comes from 4 main sources:
@@ -101,7 +110,8 @@ eg. UI could allow anon access, while Client requires a "ICanUpload" token, and 
 
 The storage module can be implemented in anyway that fits the user's requirements or infrastructure, as long as it implements the following API and exposes it in a way that can be accessed by the service layer and worker pool (eg. Go module).
 
-TODO List procedure calls that it needs to support.
+TODO List procedure calls that it needs to support.  
+TODO Include details about enabling worker and orchestration access
 
 Possible implementations:
 
@@ -133,3 +143,21 @@ Workers need to handle one (or both) of two operations: thumbnail generation, an
 
 TODO Request/Response interface  
 TODO Different transports. eg. HTTP vs ipc
+
+## Scaling
+
+- (likely) Jobs are not actioned fast enough -> provision more workers
+- (possible) UI does not respond fast enough due to large metadata set -> UI must request and render small subsets of the data at a time.
+- (possible) UI does not respond fast enough due to size/number of images flowing through it -> expose images on a CDN that's accessed directly by the client, rather than needing to be piped through the rest of the application.
+- (unlikely) too many jobs/workers for Orchestrator to manage -> allow for duplicate Orchestrators on a round robin
+- (unlikely) too many requests coming through the front-end -> duplicate system in front of a shared/synced storage system
+
+The easiest measure for scaling is to duplicate the whole system across project/team boundaries. There's no reason to keep everything centralised except that it's convenient to have a single endpoint to communicate with and a single instance to manage.
+
+## Potential features
+
+Some notes on potential feature enhancements.
+
+- **Elastic workers**: Job Orchestrator would need to know how to provision and shutdown (not just orphan) workers, or at least know where and how to send requests for more workers to be spun up.
+- **Storage sharding**: This would mostly be an implementation detail of the database. The Storage API _may_ need to be aware of this feature too.
+- **Clustering**: The trick with multiple instances is that you would need to avoid 2+ orchestrators assigning out the same jobs. The occassional cross-over should be harmless (they should both produce the same result), just a waste of resources. Otherwise it's down to how well the database implementation can scale with multiple application instances calling it.
