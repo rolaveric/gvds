@@ -31,6 +31,9 @@ Frontend          Service Layer         Backend         Worker pool
 [ Client API ] -> [ Client Service ] -> | Storage |  <- [ Job Orchestrator ] <- [ Worker ]
 [ CD API ]     -> [ CD Service ]     -> |         |
 [ Admin API ]  -> [ Admin Service ]  -> \---------/
+                                             ^
+                                             |
+                                        [ Database ]
 ```
 
 * __APIs__: Marshalls and unmarshalls requests and responses for endpoints along the specified transport(s).
@@ -106,12 +109,14 @@ To start with, only 2 security implementations will be provided:
 * StaticBearerSecurity: Require requests to include a `Bearer` authentication token, which will be statically set through environment variables. A different token can be set for each service, and can be turned off completely for some  
 eg. UI could allow anon access, while Client requires a "ICanUpload" token, and Admin requires a "TooSecretForYou" token.
 
+TODO Discuss Orchestrator to Worker and Worker to Storage security.
+
 ## Storage
 
 The storage module can be implemented in anyway that fits the user's requirements or infrastructure, as long as it implements the following API and exposes it in a way that can be accessed by the service layer and worker pool (eg. Go module).
 
 TODO List procedure calls that it needs to support.  
-TODO Include details about enabling worker and orchestration access
+TODO Include details about API for workers
 
 Possible implementations:
 
