@@ -1,0 +1,554 @@
+openapi: "3.0.0"
+info:
+  version: 0.1.0
+  title: GVDS Frontend
+  description: WORK IN PROGRESS - Frontend API for GVDS (https://github.com/rolaveric/gvds). Responses are written in the style of JSON API (http://jsonapi.org/) allowing the Frontend API module to either support a "One GET to rule them all" approach, or encourage loading specific resources as they're required.
+  license:
+    name: MIT
+servers:
+  - url: http://openapi.gvds.io/v1
+paths:
+  /projects:
+    get:
+      summary: Returns summary of all projects which have visual diffs registered.
+      operationId: ui_getProjectsSummary
+      tags:
+        - ui
+      responses:
+        '200':
+          description: List of projects and summary of their results
+          content:
+            application/json:    
+              schema:
+                type: object
+                properties:
+                  data:
+                    description: Project resources
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+                  included:
+                    description: Resources related to the projects which are included for convenience.
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/Suite"
+                        - $ref: "#/components/schemas/Run"
+                        - $ref: "#/components/schemas/Test"
+                        - $ref: "#/components/schemas/TestRun"
+                        - $ref: "#/components/schemas/Baseline"
+              examples:
+                projects-example:
+                  $ref: "#/components/examples/projectsResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Project:
+      description: A project resource, representing a grouping of diff suites and runs for a given software project.
+      type: object
+      properties:
+        id:
+          description: Unique ID for referencing the project. Can be a descriptive string, but should adhere to good URL practices (eg. numbers, lowercase letters, and dashes, only)
+          type: string
+        type:
+          type: string
+          enum: ["projects"]
+        attributes:
+          type: object
+          properties:
+            name:
+              description: Display name for the project
+              type: string
+          required:
+            - name
+          additionalProperties: false
+        relationships:
+          type: object
+          properties:
+            suites:
+              description: Links to the suites that belong to the project
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for all suites related to the project
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: ['suites']
+                    required:
+                      - id
+                      - type
+                    additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+          required:
+            - suites
+          additionalProperties: false
+      required:
+        - id
+        - type
+        - attributes
+        - relationships
+      additionalProperties: false
+    Suite:
+      description: A common grouping of tests that are always run together. Each execution of those tests is called a "run". Each run's tests are compared against the suite's "baseline", generating a visual diff.
+      type: object
+      properties:
+        id:
+          description: Unique ID for referencing the suite. A non-descriptive string that's generated when the suite is first created.
+          type: string
+        type:
+          type: string
+          enum: ["suites"]
+        attributes:
+          type: object
+          properties:
+            name:
+              description: Display name for the suite
+              type: string
+            status:
+              description: "An aggregated status for all tests in the latest run for this suite. Possible values include: 'pending' - new test images have been uploaded but their results have not yet returned; 'success' - all tests in the latest run show no/acceptable differences from baseline; 'failure' - at least 1 test in the latest run is showing an unacceptable level of difference from it's baseline; 'error' - at least 1 test job has thrown an error."
+              type: string
+              enum: ["pending", "success", "failure", "error"]
+          required:
+            - name
+            - status
+          additionalProperties: false
+        relationships:
+          type: object
+          properties:
+            baselines:
+              description: Links to the baselines for this suite
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for all baselines related to the suite
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: ['baselines']
+                    required:
+                      - id
+                      - type
+                    additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+            tests:
+              description: Links to the tests run with this suite
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for all tests related to the suite
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: ['tests']
+                    required:
+                      - id
+                      - type
+                    additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+            runs:
+              description: Links to the runs for this suite
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for all runs related to the suite
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: ['runs']
+                    required:
+                      - id
+                      - type
+                    additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+          required:
+            - baselines
+            - tests
+            - runs
+          additionalProperties: false
+      required:
+        - id
+        - type
+        - attributes
+        - relationships
+      additionalProperties: false
+    Baseline:
+      description: A baseline image for a test, which all subsequent test runs will be compared to.
+      type: object
+      properties:
+        id:
+          description: Unique ID for referencing the baseline. A non-descriptive string that's generated when the baseline is first created.
+          type: string
+        type:
+          type: string
+          enum: ["baselines"]
+        attributes:
+          type: object
+          properties:
+            image-src:
+              description: URL to the image. Should be directly usable from any image src attribute.
+              type: string
+          required:
+            - image-src
+          additionalProperties: false
+        relationships:
+          type: object
+          properties:
+            test:
+              description: Link to the test the baseline is for
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for the baseline's test resource
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    type:
+                      type: string
+                      enum: ['tests']
+                  required:
+                    - id
+                    - type
+                  additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+          required:
+            - test
+          additionalProperties: false
+      required:
+        - id
+        - type
+        - attributes
+        - relationships
+      additionalProperties: false
+    Test:
+      description: A test that's run within a suite.
+      type: object
+      properties:
+        id:
+          description: Unique ID for referencing the test. A non-descriptive string that's generated when the test is first created.
+          type: string
+        type:
+          type: string
+          enum: ["tests"]
+        attributes:
+          type: object
+          properties:
+            name:
+              description: Display name for the test
+              type: string
+          required:
+            - name
+          additionalProperties: false
+      required:
+        - id
+        - type
+        - attributes
+      additionalProperties: false
+    Run:
+      description: A run of tests within a suite
+      type: object
+      properties:
+        id:
+          description: Unique ID for referencing the run. A non-descriptive string that's generated when the run is first created.
+          type: string
+        type:
+          type: string
+          enum: ["runs"]
+        attributes:
+          type: object
+          properties:
+            name:
+              description: Display name for the run. Generally a sequential relative to the suite
+              type: string
+            start-timestamp:
+              description: Timestamp when the run was started.
+              type: string
+              format: date-time
+          required:
+            - name
+            - start-timestamp
+          additionalProperties: false
+        relationships:
+          type: object
+          properties:
+            test-runs:
+              description: Links to the test-run instances that were indexed against this run
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for the runs's test-run resources
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum: ['test-runs']
+                    required:
+                      - id
+                      - type
+                    additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+          required:
+            - test-runs
+          additionalProperties: false
+      required:
+        - id
+        - type
+        - attributes
+        - relationships
+      additionalProperties: false
+    TestRun:
+      description: Status and potential result of a test run for a suite
+      type: object
+      properties:
+        id:
+          description: Unique ID for referencing the test-run. A non-descriptive string that's generated when the test-run is first created.
+          type: string
+        type:
+          type: string
+          enum: ["test-runs"]
+        attributes:
+          type: object
+          properties:
+            image-src:
+              description: URL of the image that was uploaded for this test run
+              type: "string"
+            status:
+              description: "States the status of the test run: pending, success, failure, or error"
+              type: string
+              enum: ["pending", "success", "failure", "error"]
+            result-src:
+              description: URL of the diff result. Only set if a diff image was generated.
+              type: string
+          required:
+            - image-src
+            - status
+          additionalProperties: false
+        relationships:
+          type: object
+          properties:
+            test:
+              description: Link to the test that the test-run was for
+              type: object
+              properties:
+                links:
+                  type: object
+                  properties:
+                    related:
+                      description: URL for the test-run's test resources
+                      type: string
+                  required:
+                    - related
+                  additionalProperties: false
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    type:
+                      type: string
+                      enum: ['tests']
+                  required:
+                    - id
+                    - type
+                  additionalProperties: false
+              required:
+                - links
+                - data
+              additionalProperties: false
+          required:
+            - test
+          additionalProperties: false
+      required:
+        - id
+        - type
+        - attributes
+        - relationships
+      additionalProperties: false
+    Error:
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+  examples:
+    projectsResponse:
+      summary: An example response from `GET /projects`
+      value: 
+        data:
+         - id: myProject
+           type: projects
+           attributes:
+             name: My Project
+           relationships:
+             suites:
+               links:
+                 related: 'http://openapi.gvds.io/v1/projects/myProject/suites'
+               data:
+                 - type: suites
+                   id: '1'
+        included:
+           - id: '1'
+             type: suites
+             attributes:
+               name: Nightly suite
+               status: success
+             relationships:
+               baselines:
+                 links:
+                   related: 'http://openapi.gvds.io/v1/suites/1/baselines'
+                 data:
+                   - type: baselines
+                     id: '1'
+               tests:
+                 links:
+                   related: 'http://openapi.gvds.io/v1/suites/1/tests'
+                 data:
+                   - type: tests
+                     id: '1'
+               runs:
+                 links:
+                   related: 'http://openapi.gvds.io/v1/suites/1/runs'
+                 data:
+                   - type: runs
+                     id: '1'
+           - id: '1'
+             type: baselines
+             attributes:
+               image-src: 'http://openapi.gvds.io/v1/images/baseline-1.png'
+             relationships:
+               test:
+                 links:
+                   related: 'http://openapi.gvds.io/v1/baselines/1/test'
+                 data:
+                   type: tests
+                   id: '1'
+           - id: '1'
+             type: tests
+             attributes:
+               name: Home screen
+           - id: '1'
+             type: runs
+             attributes:
+               name: '1'
+               start-timestamp: '2018-08-12T07:56:42.635Z'
+             relationships:
+               test-runs:
+                 links:
+                   related: 'http://openapi.gvds.io/v1/runs/1/test-runs'
+                 data:
+                   - type: test-runs
+                     id: '1'
+           - id: '1'
+             type: test-runs
+             attributes:
+              image-src: 'http://openapi.gvds.io/v1/images/test-run-image-1.png'
+              status: success
+              result-src: 'http://openapi.gvds.io/v1/images/test-run-result-1.png'
+             relationships:
+               test:
+                 links:
+                   related: 'http://openapi.gvds.io/v1/test-runs/1/test'
+                 data:
+                   type: test
+                   id: '1'
+             
