@@ -46,6 +46,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /images/{id}:
+    description: Required if images are located locally, rather than via a separate CDN.
+    get:
+      summary: Returns image content by ID
+      operationId: ui_getImage
+      tags:
+        - ui
+      responses:
+        '200':
+          description: Image content
+          content:
+            'image/*':
+              schema:
+                type: string
+                format: binary
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    parameters:
+    - name: id
+      in: path
+      description: ID of the image.
+      required: true
+      allowReserved: true
+      schema:
+        type: string
+      style: simple
+  /tests/{id}/baseline:
+    put:
+      summary: Set the image URL to use as a test's baseline to compare to.
+      operationId: ui_setBaseline
+      tags:
+        - ui
+      requestBody:
+        description: Image URL
+        content: 
+          'application/json':
+            schema:
+              type: object
+              properties:
+                image-url:
+                  type: string
+              required:
+                - image-url
+      responses:
+        '204':
+          description: Image URL accepted. No response body.
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    parameters:
+    - name: id
+      in: path
+      description: ID of the test resource.
+      required: true
+      allowReserved: true
+      schema:
+        type: string
+      style: simple
 components:
   schemas:
     Project:
@@ -137,37 +202,6 @@ components:
         relationships:
           type: object
           properties:
-            baselines:
-              description: Links to the baselines for this suite
-              type: object
-              properties:
-                links:
-                  type: object
-                  properties:
-                    related:
-                      description: URL for all baselines related to the suite
-                      type: string
-                  required:
-                    - related
-                  additionalProperties: false
-                data:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      type:
-                        type: string
-                        enum: ['baselines']
-                    required:
-                      - id
-                      - type
-                    additionalProperties: false
-              required:
-                - links
-                - data
-              additionalProperties: false
             tests:
               description: Links to the tests run with this suite
               type: object
@@ -241,66 +275,6 @@ components:
         - attributes
         - relationships
       additionalProperties: false
-    Baseline:
-      description: A baseline image for a test, which all subsequent test runs will be compared to.
-      type: object
-      properties:
-        id:
-          description: Unique ID for referencing the baseline. A non-descriptive string that's generated when the baseline is first created.
-          type: string
-        type:
-          type: string
-          enum: ["baselines"]
-        attributes:
-          type: object
-          properties:
-            image-src:
-              description: URL to the image. Should be directly usable from any image src attribute.
-              type: string
-          required:
-            - image-src
-          additionalProperties: false
-        relationships:
-          type: object
-          properties:
-            test:
-              description: Link to the test the baseline is for
-              type: object
-              properties:
-                links:
-                  type: object
-                  properties:
-                    related:
-                      description: URL for the baseline's test resource
-                      type: string
-                  required:
-                    - related
-                  additionalProperties: false
-                data:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    type:
-                      type: string
-                      enum: ['tests']
-                  required:
-                    - id
-                    - type
-                  additionalProperties: false
-              required:
-                - links
-                - data
-              additionalProperties: false
-          required:
-            - test
-          additionalProperties: false
-      required:
-        - id
-        - type
-        - attributes
-        - relationships
-      additionalProperties: false
     Test:
       description: A test that's run within a suite.
       type: object
@@ -317,8 +291,12 @@ components:
             name:
               description: Display name for the test
               type: string
+            baseline-image-src:
+              description: URL to the image used as the baseline for this test. Should be directly usable from any image src attribute.
+              type: string
           required:
             - name
+            - baseline-image-src
           additionalProperties: false
       required:
         - id
